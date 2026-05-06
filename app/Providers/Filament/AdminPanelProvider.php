@@ -27,6 +27,9 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            ->brandName('Fajar Riau Wisata')
+            ->brandLogo(asset('img/logo_frw_nb.png'))
+            ->brandLogoHeight('150px')
             ->colors([
                 'primary' => Color::Amber,
             ])

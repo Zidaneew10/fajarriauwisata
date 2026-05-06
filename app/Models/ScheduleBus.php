@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ScheduleBus extends Model
 {
-    protected $fillable = ['schedule_id', 'bus_class_id', 'bus_code'];
+    protected $fillable = ['schedule_id', 'bus_class_id', 'bus_id'];
 
     protected static function booted(): void
     {
@@ -27,6 +27,11 @@ class ScheduleBus extends Model
         return $this->belongsTo(BusClass::class);
     }
 
+    public function bus(): BelongsTo
+    {
+        return $this->belongsTo(Bus::class);
+    }
+
     public function scheduleSeats(): HasMany
     {
         return $this->hasMany(ScheduleSeat::class);
@@ -39,16 +44,16 @@ class ScheduleBus extends Model
 
     public function generateSeats(): void
     {
-        $busClass = $this->busClass;
+        $bus = $this->bus;
 
-        $columns = match ($busClass->class_type) {
+        $columns = match ($bus->class_type) {
             'SE 2-1'    => ['A', 'B', 'C'],
             'Sleeper'   => ['A', 'B', 'C', 'D'],
             'Executive' => ['A', 'B', 'C', 'D'],
             default     => ['A', 'B', 'C'],
         };
 
-        $totalRows = (int) ceil($busClass->capacity / count($columns));
+        $totalRows = (int) ceil($bus->capacity / count($columns));
         $seats     = [];
 
         for ($row = 1; $row <= $totalRows; $row++) {

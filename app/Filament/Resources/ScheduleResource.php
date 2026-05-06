@@ -3,19 +3,20 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\ScheduleResource\Pages;
+use App\Models\Bus;
 use App\Models\BusClass;
 use App\Models\BusTrip;
 use App\Models\Schedule;
 use App\Models\ScheduleBus;
-use Filament\Forms\Form;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
-use Filament\Tables\Table;
-use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Actions;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Table;
 
 class ScheduleResource extends Resource
 {
@@ -60,31 +61,28 @@ class ScheduleResource extends Resource
                     ->icon('heroicon-o-plus-circle')
                     ->color('success')
                     ->form(fn(Schedule $record) => [
-                        Select::make('bus_class_id')
-                            ->label('Kelas Bus')
+                        Select::make('bus_id')
+                            ->label('Pilih Bus')
                             ->options(
-                                BusClass::where('bus_trip_id', $record->bus_trip_id)
+                                Bus::where('status', 'active')
                                     ->get()
-                                    ->mapWithKeys(fn($c) => [
-                                        $c->id => $c->class_type . ' — Rp' . number_format($c->price, 0, ',', '.')
+                                    ->mapWithKeys(fn($b) => [
+                                        $b->id => "{$b->plate_number} — {$b->class_type} (Kapasitas: {$b->capacity})"
                                     ])
                             )
-                            ->required(),
-                        TextInput::make('bus_code')
-                            ->label('Nomor Polisi Bus')
-                            ->placeholder('Contoh: BM 1234 AB')
+                            ->searchable()
                             ->required(),
                     ])
                     ->action(function (Schedule $record, array $data) {
+                        $bus = Bus::find($data['bus_id']);
                         ScheduleBus::create([
                             'schedule_id'  => $record->id,
-                            'bus_class_id' => $data['bus_class_id'],
-                            'bus_code'     => $data['bus_code'],
+                            'bus_id'       => $bus->id,
+                            'bus_class_id' => $record->busTrip->busClasses()
+                                ->where('class_type', $bus->class_type)
+                                ->first()?->id,
                         ]);
-                        Notification::make()
-                            ->title('Bus berhasil ditugaskan!')
-                            ->success()
-                            ->send();
+                        Notification::make()->title('Bus berhasil ditugaskan!')->success()->send();
                     }),
 
                 Actions\Action::make('lihat_bus')

@@ -6,7 +6,6 @@ use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\PaymentController;
 use Illuminate\Support\Facades\Route;
 
-// Webhook Midtrans — TIDAK pakai auth
 Route::post('/midtrans/webhook', [PaymentController::class, 'webhook']);
 
 Route::post('/register', [AuthController::class, 'register']);

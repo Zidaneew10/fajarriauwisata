@@ -9,16 +9,28 @@ use Illuminate\Http\Request;
 
 class ScheduleController extends Controller
 {
-    public function index(Request $request)
-    {
-        $schedules = Schedule::with(['busTrip.routeSegments.terminal'])
-            ->where('departure_time', '>=', now())
-            ->when($request->date, fn($q) => $q->whereDate('departure_time', $request->date))
-            ->orderBy('departure_time')
-            ->paginate(20);
+ public function index(Request $request)
+{
+    $schedules = Schedule::with(['busTrip.routeSegments.terminal'])
+        ->where('departure_time', '>=', now())
+        ->when($request->date, fn($q) =>
+            $q->whereDate('departure_time', $request->date)
+        )
+        ->when($request->origin, fn($q) =>
+            $q->whereHas('busTrip.routeSegments.terminal', fn($q2) =>
+                $q2->where('city', 'like', "%{$request->origin}%")
+            )
+        )
+        ->when($request->destination, fn($q) =>
+            $q->whereHas('busTrip.routeSegments.terminal', fn($q2) =>
+                $q2->where('city', 'like', "%{$request->destination}%")
+            )
+        )
+        ->orderBy('departure_time')
+        ->paginate(20);
 
-        return response()->json($schedules);
-    }
+    return response()->json($schedules);
+}
 
     public function buses(Schedule $schedule)
     {

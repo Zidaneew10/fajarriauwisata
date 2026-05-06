@@ -14,8 +14,8 @@ return new class extends Migration
         Schema::create('schedule_buses', function (Blueprint $table) {
             $table->id();
             $table->foreignId('schedule_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('bus_class_id')->constrained()->restrictOnDelete();
-            $table->string('bus_code');
+            $table->foreignId('bus_class_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('bus_id')->nullable()->constrained()->nullOnDelete(); // ← tambah
             $table->timestamps();
         });
     }

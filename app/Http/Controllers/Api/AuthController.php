@@ -18,11 +18,15 @@ class AuthController extends Controller
             'password' => 'required|min:8|confirmed',
         ]);
 
-        $user  = User::create([
+        $user = User::create([
             'name'     => $validated['name'],
             'email'    => $validated['email'],
             'password' => Hash::make($validated['password']),
         ]);
+
+        // Auto assign role pelanggan
+        $user->assignRole('pelanggan');
+
         $token = $user->createToken('android')->plainTextToken;
 
         return response()->json(['user' => $user, 'token' => $token], 201);
