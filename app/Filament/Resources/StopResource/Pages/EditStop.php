@@ -1,14 +1,14 @@
 <?php
 
-namespace App\Filament\Resources\TerminalResource\Pages;
+namespace App\Filament\Resources\StopResource\Pages;
 
-use App\Filament\Resources\TerminalResource;
+use App\Filament\Resources\StopResource;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 
-class EditTerminal extends EditRecord
+class EditStops extends EditRecord
 {
-    protected static string $resource = TerminalResource::class;
+    protected static string $resource = StopResource::class;
 
     protected function getHeaderActions(): array
     {

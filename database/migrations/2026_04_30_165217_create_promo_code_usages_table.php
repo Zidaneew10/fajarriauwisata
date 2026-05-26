@@ -9,7 +9,7 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-    public function up(): void
+      public function up(): void
     {
         Schema::create('promo_code_usages', function (Blueprint $table) {
             $table->id();
@@ -17,8 +17,6 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->foreignId('booking_id')->constrained()->cascadeOnDelete();
             $table->timestamps();
-
-            $table->unique(['promo_code_id', 'user_id']);
         });
     }
     /**

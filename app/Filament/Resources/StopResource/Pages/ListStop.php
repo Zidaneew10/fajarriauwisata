@@ -1,14 +1,14 @@
 <?php
 
-namespace App\Filament\Resources\TerminalResource\Pages;
+namespace App\Filament\Resources\StopResource\Pages;
 
-use App\Filament\Resources\TerminalResource;
+use App\Filament\Resources\StopResource;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 
-class ListTerminals extends ListRecords
+class ListStops extends ListRecords
 {
-    protected static string $resource = TerminalResource::class;
+    protected static string $resource = StopResource::class;
 
     protected function getHeaderActions(): array
     {

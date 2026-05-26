@@ -7,15 +7,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class RouteSegment extends Model
 {
-    protected $fillable = ['bus_trip_id', 'terminal_id', 'sequence'];
+    protected $fillable = ['bus_trip_id', 'stop_id', 'sequence'];
 
     public function busTrip(): BelongsTo
     {
         return $this->belongsTo(BusTrip::class);
     }
 
-    public function terminal(): BelongsTo
+    public function stop(): BelongsTo
     {
-        return $this->belongsTo(Terminal::class);
+        return $this->belongsTo(Stop::class);
     }
 }

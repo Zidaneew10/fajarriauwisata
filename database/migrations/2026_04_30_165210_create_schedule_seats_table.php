@@ -13,13 +13,13 @@ return new class extends Migration
     {
         Schema::create('schedule_seats', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('schedule_bus_id')->constrained()->cascadeOnDelete();
-            $table->integer('row');
-            $table->string('column', 2);
+            $table->foreignId('schedule_id')->constrained()->cascadeOnDelete();
+            $table->integer('row');           
+            $table->string('column', 1);
+            $table->string('label');
             $table->boolean('is_available')->default(true);
             $table->timestamps();
-
-            $table->unique(['schedule_bus_id', 'row', 'column']);
+            $table->unique(['schedule_id', 'row', 'column']);
         });
     }
 

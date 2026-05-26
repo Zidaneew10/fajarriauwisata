@@ -9,13 +9,13 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-    public function up(): void
+     public function up(): void
     {
         Schema::create('route_segments', function (Blueprint $table) {
             $table->id();
             $table->foreignId('bus_trip_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('terminal_id')->constrained()->restrictOnDelete();
-            $table->integer('sequence');
+            $table->foreignId('stop_id')->constrained('stops')->restrictOnDelete();
+            $table->integer('sequence');       // 1 = titik awal, terakhir = tujuan akhir
             $table->timestamps();
         });
     }

@@ -4,26 +4,21 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class ScheduleSeat extends Model
 {
-    protected $fillable = ['schedule_bus_id', 'row', 'column', 'is_available'];
+    protected $fillable = ['schedule_id', 'row', 'column', 'label', 'is_available'];
 
     protected $casts = ['is_available' => 'boolean'];
 
-    public function scheduleBus(): BelongsTo
+    public function schedule(): BelongsTo
     {
-        return $this->belongsTo(ScheduleBus::class);
+        return $this->belongsTo(Schedule::class);
     }
 
-    public function passengers(): HasMany
+    public function passenger(): HasOne
     {
-        return $this->hasMany(Passenger::class);
-    }
-
-    public function getLabelAttribute(): string
-    {
-        return $this->column . $this->row;
+        return $this->hasOne(Passenger::class);
     }
 }

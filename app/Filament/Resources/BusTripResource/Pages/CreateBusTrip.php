@@ -16,7 +16,7 @@ class CreateBusTrip extends CreateRecord
         foreach ($this->data['routeSegments'] ?? [] as $segment) {
             RouteSegment::create([
                 'bus_trip_id' => $this->record->id,
-                'terminal_id' => $segment['terminal_id'],
+                'stop_id' => $segment['stop_id'],
                 'sequence'    => $segment['sequence'],
             ]);
         }

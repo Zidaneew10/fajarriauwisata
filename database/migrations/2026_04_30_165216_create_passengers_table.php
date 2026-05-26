@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('booking_id')->constrained()->cascadeOnDelete();
             $table->foreignId('schedule_seat_id')->constrained()->restrictOnDelete();
             $table->string('name');
-            $table->string('id_number');
+            $table->enum('gender', ['Laki-laki', 'Perempuan']);
             $table->string('phone')->nullable();
             $table->timestamps();
         });

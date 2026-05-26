@@ -10,7 +10,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class ScheduleTemplate extends Model
 {
     protected $fillable = [
-        'bus_trip_id', 'departure_times', 'days_of_week', 'start_date', 'end_date',
+        'bus_trip_id',
+        'departure_times',
+        'days_of_week',
+        'start_date',
+        'end_date',
     ];
 
     protected $casts = [
@@ -51,6 +55,7 @@ class ScheduleTemplate extends Model
 
                 Schedule::create([
                     'bus_trip_id'    => $this->bus_trip_id,
+                    'departure_date' => $date->format('Y-m-d'),
                     'departure_time' => $departureTime,
                 ]);
 

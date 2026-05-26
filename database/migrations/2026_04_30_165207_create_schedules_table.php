@@ -9,15 +9,16 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-    public function up(): void
+
+        public function up(): void
     {
         Schema::create('schedules', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('bus_trip_id')->constrained()->cascadeOnDelete();
-            $table->dateTime('departure_time');
+            $table->foreignId('bus_trip_id')->constrained()->restrictOnDelete();
+            $table->date('departure_date');
+            $table->time('departure_time');
+            $table->enum('status', ['active', 'cancelled', 'completed'])->default('active');
             $table->timestamps();
-
-            $table->unique(['bus_trip_id', 'departure_time']);
         });
     }
 

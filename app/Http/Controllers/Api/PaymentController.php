@@ -31,7 +31,22 @@ class PaymentController extends Controller
         }
 
         try {
+            // CEK DISINI: Jika sudah punya snap_token, gunakan yang lama
+            if (!empty($booking->snap_token)) {
+                return response()->json([
+                    'snap_token' => $booking->snap_token,
+                    'snap_url'   => config('midtrans.snap_url'),
+                    'booking'    => $booking->fresh(),
+                ]);
+            }
+
+            // Jika belum ada, generate token baru
             $token = $this->paymentService->createSnapToken($booking);
+
+            // SIMPAN token ke database agar bisa dipakai lagi
+            $booking->update([
+                'snap_token' => $token
+            ]);
 
             return response()->json([
                 'snap_token' => $token,
