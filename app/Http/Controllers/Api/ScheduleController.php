@@ -11,35 +11,82 @@ class ScheduleController extends Controller
     public function index(Request $request)
     {
         $schedules = Schedule::with([
-            'busTrip.routeSegments.stop',  // ← ganti terminal → stop
-        ])
-        ->where('status', 'active')
-        ->when($request->date, fn($q) =>
-            $q->whereDate('departure_date', $request->date)
-        )
-        ->when($request->origin, fn($q) =>
-            $q->whereHas('busTrip.routeSegments', fn($q2) =>
-                $q2->where('sequence', 1)
-                   ->whereHas('stop', fn($q3) =>   // ← ganti
-                       $q3->where('city', 'like', "%{$request->origin}%")
-                   )
-            )
-        )
-        ->when($request->destination, fn($q) =>
-            $q->whereHas('busTrip.routeSegments', fn($q2) =>
-                $q2->where('sequence', '>', 1)
-                   ->whereHas('stop', fn($q3) =>   // ← ganti
-                       $q3->where('city', 'like', "%{$request->destination}%")
-                   )
-            )
-        )
-        ->orderBy('departure_date')
-        ->orderBy('departure_time')
-        ->paginate(20);
+                'busTrip.routeSegments.stop',
+                'busTrip.busClasses.facilities',
+            ])
+            ->withCount([
+                'seats as available_seats' => function ($q) {
+                    $q->where('is_available', true);
+                }
+            ])
+            ->bookable()
+            ->when($request->date, function ($q) use ($request) {
+                $q->whereDate('departure_date', $request->date);
+            })
+            ->when($request->origin, function ($q) use ($request) {
+                $q->whereHas('busTrip.routeSegments', function ($q2) use ($request) {
+                    $q2->where('sequence', 1)
+                        ->whereHas('stop', function ($q3) use ($request) {
+                            $q3->where('city', 'like', "%{$request->origin}%");
+                        });
+                });
+            })
+            ->when($request->destination, function ($q) use ($request) {
+                $q->whereHas('busTrip.routeSegments', function ($q2) use ($request) {
+                    $q2->where('sequence', '>', 1)
+                        ->whereHas('stop', function ($q3) use ($request) {
+                            $q3->where('city', 'like', "%{$request->destination}%");
+                        });
+                });
+            })
+            ->orderBy('departure_date')
+            ->orderBy('departure_time')
+            ->paginate(20);
 
         $schedules->getCollection()->transform(function ($schedule) {
-            $schedule->available_seats = $schedule->seats()
-                ->where('is_available', true)->count();
+
+            if ($schedule->busTrip) {
+
+                $busTrip = clone $schedule->busTrip;
+
+                $segments = $busTrip->routeSegments
+                    ->sortBy('sequence')
+                    ->values();
+
+                $busTrip->setRelation(
+                    'routeSegments',
+                    $segments->map(function ($seg) {
+                        return [
+                            'sequence'    => $seg->sequence,
+                            'stop_id'     => $seg->stop_id,
+                            'city'        => $seg->stop?->city ?? '-',
+                            'name'        => $seg->stop?->name ?? '-',
+                            'type'        => $seg->stop?->type ?? '-',
+                            'address'     => $seg->stop?->address,
+                            'time_offset' => $seg->time_offset,
+                        ];
+                    })
+                );
+
+                $facilities = collect();
+                if ($busTrip->relationLoaded('busClasses')) {
+                    $busClass = $busTrip->busClasses->firstWhere('class_type', $busTrip->class_type);
+                    if ($busClass && $busClass->relationLoaded('facilities')) {
+                        $facilities = $busClass->facilities->map(function ($facility) {
+                            return [
+                                'id'          => $facility->id,
+                                'name'        => $facility->name,
+                                'image'       => $facility->image ? url('storage/' . $facility->image) : null,
+                                'description' => $facility->description,
+                            ];
+                        })->values();
+                    }
+                }
+                $busTrip->setAttribute('facilities', $facilities);
+
+                $schedule->setRelation('busTrip', $busTrip);
+            }
+
             return $schedule;
         });
 
@@ -48,24 +95,34 @@ class ScheduleController extends Controller
 
     public function seats(Schedule $schedule)
     {
+        if (!$schedule->isBookable()) {
+            return response()->json(['message' => 'Jadwal tidak tersedia atau sudah lewat.'], 422);
+        }
+
+        $schedule->load([
+            'busTrip.routeSegments.stop'
+        ]);
+
         $seats = $schedule->seats()
             ->orderBy('row')
             ->orderBy('column')
             ->get();
 
-        $routeSegments = $schedule->busTrip->routeSegments()
-            ->with('stop')
-            ->orderBy('sequence')
-            ->get()
-            ->map(fn($seg) => [
-                'sequence'    => $seg->sequence,
-                'stop_id'     => $seg->stop_id,
-                'city'        => $seg->stop->city,
-                'name'        => $seg->stop->name,
-                'type'        => $seg->stop->type,
-                'address'     => $seg->stop->address,
-                'time_offset' => $seg->time_offset,
-            ]);
+        $routeSegments = $schedule->busTrip
+            ->routeSegments
+            ->sortBy('sequence')
+            ->values()
+            ->map(function ($seg) {
+                return [
+                    'sequence'    => $seg->sequence,
+                    'stop_id'     => $seg->stop_id,
+                    'city'        => $seg->stop?->city ?? '-',
+                    'name'        => $seg->stop?->name ?? '-',
+                    'type'        => $seg->stop?->type ?? '-',
+                    'address'     => $seg->stop?->address,
+                    'time_offset' => $seg->time_offset,
+                ];
+            });
 
         return response()->json([
             'schedule' => [
@@ -77,9 +134,10 @@ class ScheduleController extends Controller
                 'seat_layout'    => $schedule->busTrip->seat_layout,
                 'trip_number'    => $schedule->busTrip->trip_number,
                 'description'    => $schedule->busTrip->description,
+                'available_seats'=> $schedule->available_seats ?? null,
             ],
             'route_segments' => $routeSegments,
-            'seats'          => $seats,
+            'seats' => $seats,
         ]);
     }
 }

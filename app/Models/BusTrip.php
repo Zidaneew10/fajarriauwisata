@@ -27,6 +27,11 @@ class BusTrip extends Model
         return $this->hasMany(Schedule::class);
     }
 
+    public function busClasses(): HasMany
+    {
+        return $this->hasMany(BusClass::class);
+    }
+
     public function getSeatColumns(): array
     {
         return match ($this->seat_layout) {

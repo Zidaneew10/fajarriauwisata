@@ -16,10 +16,6 @@ class ListSparePartRequests extends ListRecords
 
     protected static string $resource = SparePartRequestResource::class;
 
-    /**
-     * WAJIB panggil parent::getTableQuery()
-     * supaya Filament tetap bisa bind model ke table context
-     */
     protected function getTableQuery(): Builder
     {
         return parent::getTableQuery()

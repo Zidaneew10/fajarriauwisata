@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('schedule_templates', function (Blueprint $table) {
             $table->id();
             $table->foreignId('bus_trip_id')->constrained()->cascadeOnDelete();
+            $table->integer('duration_minutes')->default(0);
             $table->json('departure_times');
             $table->json('days_of_week');
             $table->date('start_date');

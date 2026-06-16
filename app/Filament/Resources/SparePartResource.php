@@ -2,92 +2,170 @@
 
 namespace App\Filament\Resources;
 
+
+use App\Filament\Traits\HasRoleAccess;
 use App\Filament\Resources\SparePartResource\Pages;
 use App\Models\SparePart;
 use Filament\Forms\Form;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Section;
-use Filament\Notifications\Notification;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\Select;
 use Filament\Resources\Resource;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Actions\ViewAction;
 use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Actions\DeleteAction;
-use Filament\Tables\Actions\ViewAction;
 
 class SparePartResource extends Resource
 {
+    use HasRoleAccess;
+
+
     protected static ?string $model = SparePart::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-wrench-screwdriver';
+
     protected static ?string $navigationGroup = 'Inventaris';
-    protected static ?string $label = 'Sparepart';
+
+    protected static ?string $navigationLabel = 'Sparepart';
+
+    protected static ?string $modelLabel = 'Sparepart';
+
+    protected static ?string $pluralModelLabel = 'Sparepart';
+
+    public static function canAccess(): bool
+    {
+        return static::canManageInventory();
+    }
 
     public static function form(Form $form): Form
     {
         return $form->schema([
-            Section::make('Informasi Sparepart')->schema([
-                TextInput::make('code')
-                    ->label('Kode Sparepart')
-                    ->required()
-                    ->unique(ignoreRecord: true),
 
-                TextInput::make('name')
-                    ->label('Nama Sparepart')
-                    ->required(),
+            Section::make('Informasi Sparepart')
+                ->schema([
 
-                Select::make('unit')
-                    ->label('Satuan')
-                    ->options([
-                        'pcs'   => 'Pcs',
-                        'liter' => 'Liter',
-                        'set'   => 'Set',
-                        'meter' => 'Meter',
-                        'kg'    => 'Kilogram',
-                        'buah'  => 'Buah',
-                    ])
-                    ->required(),
+                    TextInput::make('code')
+                        ->label('Kode Sparepart')
+                        ->required()
+                        ->unique(ignoreRecord: true),
 
-                TextInput::make('price')
-                    ->label('Harga Satuan (Rp)')
-                    ->numeric()
-                    ->prefix('Rp')
-                    ->required(),
+                    TextInput::make('name')
+                        ->label('Nama Sparepart')
+                        ->required(),
 
-                Textarea::make('description')
-                    ->label('Deskripsi')
-                    ->nullable()
-                    ->columnSpanFull(),
-            ])->columns(2),
+                    Select::make('unit')
+                        ->label('Satuan')
+                        ->options([
+                            'pcs'   => 'Pcs',
+                            'liter' => 'Liter',
+                            'set'   => 'Set',
+                            'meter' => 'Meter',
+                            'kg'    => 'Kilogram',
+                            'buah'  => 'Buah',
+                        ])
+                        ->required(),
 
-            Section::make('Safety Stock & ROP')->schema([
-                TextInput::make('safety_stock')
-                    ->label('Safety Stock')
-                    ->numeric()
-                    ->required()
-                    ->helperText('Stok minimum yang harus selalu tersedia'),
+                    TextInput::make('stock')
+                        ->label('Stok Saat Ini')
+                        ->numeric()
+                        ->default(0)
+                        ->required(),
 
-                TextInput::make('lead_time')
-                    ->label('Lead Time (hari)')
-                    ->numeric()
-                    ->required()
-                    ->helperText('Rata-rata waktu tunggu pengiriman dari supplier'),
+                    TextInput::make('price')
+                        ->label('Harga Satuan')
+                        ->numeric()
+                        ->prefix('Rp')
+                        ->required(),
 
-                TextInput::make('avg_daily_usage')
-                    ->label('Rata-rata Pemakaian/Hari')
-                    ->numeric()
-                    ->required()
-                    ->helperText('Akan otomatis diupdate dari histori pemakaian'),
+                    Textarea::make('description')
+                        ->label('Deskripsi')
+                        ->rows(4)
+                        ->columnSpanFull(),
 
-                TextInput::make('rop')
-                    ->label('ROP (Reorder Point)')
-                    ->numeric()
-                    ->disabled()
-                    ->helperText('ROP = (Avg Daily Usage × Lead Time) + Safety Stock — dihitung otomatis'),
-            ])->columns(2),
+                ])
+                ->columns(2),
+
+            Section::make('Perhitungan Safety Stock & ROP')
+                ->schema([
+
+                    TextInput::make('maximum_daily_usage')
+                        ->label('Pemakaian Maksimum / Hari')
+                        ->numeric()
+                        ->required()
+                        ->live(onBlur: true)
+                        ->afterStateUpdated(function ($get, $set) {
+
+                            $max  = (float) $get('maximum_daily_usage');
+                            $avg  = (float) $get('avg_daily_usage');
+                            $lead = (float) $get('lead_time');
+
+
+                            $ss = ($max - $avg) * $lead;
+
+
+                            $rop = ($lead * $avg) + $ss;
+
+                            $set('safety_stock', $ss >= 0 ? (int) ceil($ss) : 0);
+                            $set('rop', (int) ceil($rop));
+                        }),
+
+                    TextInput::make('avg_daily_usage')
+                        ->label('Rata-rata Pemakaian / Hari')
+                        ->numeric()
+                        ->required()
+                        ->live(onBlur: true)
+                        ->afterStateUpdated(function ($get, $set) {
+
+                            $max  = (float) $get('maximum_daily_usage');
+                            $avg  = (float) $get('avg_daily_usage');
+                            $lead = (float) $get('lead_time');
+
+                            $ss = ($max - $avg) * $lead;
+
+                            $rop = ($lead * $avg) + $ss;
+
+                            $set('safety_stock', ceil($ss));
+                            $set('rop', ceil($rop));
+                        }),
+
+                    TextInput::make('lead_time')
+                        ->label('Lead Time (Hari)')
+                        ->numeric()
+                        ->required()
+                        ->live(onBlur: true)
+                        ->afterStateUpdated(function ($get, $set) {
+
+                            $max  = (float) $get('maximum_daily_usage');
+                            $avg  = (float) $get('avg_daily_usage');
+                            $lead = (float) $get('lead_time');
+
+                            $ss = ($max - $avg) * $lead;
+
+                            $rop = ($lead * $avg) + $ss;
+
+                            $set('safety_stock', ceil($ss));
+                            $set('rop', ceil($rop));
+                        }),
+
+                    TextInput::make('safety_stock')
+                        ->label('Safety Stock')
+                        ->numeric()
+                        ->disabled()
+                        ->dehydrated(),
+
+                    TextInput::make('rop')
+                        ->label('Reorder Point (ROP)')
+                        ->numeric()
+                        ->disabled()
+                        ->dehydrated(),
+
+                ])
+                ->columns(2),
+
         ]);
     }
 
@@ -95,49 +173,83 @@ class SparePartResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('code')->label('Kode')->searchable(),
-                TextColumn::make('name')->label('Nama')->searchable(),
-                TextColumn::make('unit')->label('Satuan'),
+
+                TextColumn::make('code')
+                    ->label('Kode')
+                    ->searchable(),
+
+                TextColumn::make('name')
+                    ->label('Nama')
+                    ->searchable(),
+
+                TextColumn::make('unit')
+                    ->label('Satuan'),
+
                 TextColumn::make('stock')
                     ->label('Stok')
                     ->badge()
-                    ->color(fn(SparePart $record) => match(true) {
+                    ->color(fn(SparePart $record) => match (true) {
                         $record->isCritical()   => 'danger',
                         $record->needsReorder() => 'warning',
                         default                 => 'success',
                     }),
-                TextColumn::make('safety_stock')->label('Safety Stock'),
-                TextColumn::make('rop')->label('ROP'),
-                TextColumn::make('avg_daily_usage')->label('Avg/Hari')->numeric(2),
-                TextColumn::make('price')->money('IDR')->label('Harga'),
+
+            
+
+                TextColumn::make('safety_stock')
+                    ->label('Safety Stock')
+                    ->badge()
+                    ->color('info'),
+
+                TextColumn::make('rop')
+                    ->label('ROP')
+                    ->badge()
+                    ->color('warning'),
+
+                TextColumn::make('price')
+                    ->label('Harga')
+                    ->money('IDR'),
+
             ])
+
             ->filters([
+
                 SelectFilter::make('status')
                     ->label('Status Stok')
                     ->options([
-                        'critical' => 'Kritis (< Safety Stock)',
-                        'reorder'  => 'Perlu Reorder (< ROP)',
-                        'ok'       => 'Aman',
+                        'critical' => 'Kritis',
+                        'reorder'  => 'Perlu Reorder',
+                        'safe'     => 'Aman',
                     ])
                     ->query(function ($query, $data) {
-                        match($data['value'] ?? null) {
-                            'critical' => $query->whereRaw('stock <= safety_stock'),
-                            'reorder'  => $query->whereRaw('stock <= rop AND stock > safety_stock'),
-                            'ok'       => $query->whereRaw('stock > rop'),
-                            default    => null,
+
+                        match ($data['value'] ?? null) {
+
+                            'critical'
+                            => $query->whereRaw('stock <= safety_stock'),
+
+                            'reorder'
+                            => $query->whereRaw('stock <= rop AND stock > safety_stock'),
+
+                            'safe'
+                            => $query->whereRaw('stock > rop'),
+
+                            default => null,
                         };
                     }),
+
             ])
+
             ->actions([
+
                 ViewAction::make(),
-                EditAction::make()
-                    ->after(function (SparePart $record) {
-                        // Hitung ulang ROP setelah edit
-                        $record->rop = $record->calculateRop();
-                        $record->save();
-                    }),
+
+                EditAction::make(),
+
                 DeleteAction::make(),
+
             ])
+
             ->defaultSort('name');
     }
 

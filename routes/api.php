@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingController;
+use App\Http\Controllers\Api\QrCodeController;
 use App\Http\Controllers\Api\ScheduleController;
 use App\Http\Controllers\Api\WebhookController;
 use Illuminate\Support\Facades\Route;
@@ -20,7 +21,10 @@ Route::middleware(['auth:sanctum', 'throttle:60,1'])->group(function () {
     Route::get('/bookings',                     [BookingController::class, 'index']);
     Route::post('/bookings',                    [BookingController::class, 'store']);
     Route::get('/bookings/{booking}',           [BookingController::class, 'show']);
+    Route::get('/bookings/{booking_code}/tickets', [BookingController::class, 'tickets']);
     Route::post('/bookings/{booking}/payment',  [BookingController::class, 'payment']);
     Route::post('/bookings/{booking}/cancel',   [BookingController::class, 'cancel']);
     Route::post('/promo/check',                 [BookingController::class, 'checkPromo']);
+
+    Route::post('/qr/scan', [QrCodeController::class, 'scan']);
 });

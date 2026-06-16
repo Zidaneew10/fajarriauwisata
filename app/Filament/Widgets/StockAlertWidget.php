@@ -8,6 +8,10 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 
 class StockAlertWidget extends BaseWidget
 {
+    protected static ?int $sort = 5;
+
+    protected int | string | array $columnSpan = 'full';
+
     protected function getStats(): array
     {
         $critical = SparePart::whereRaw('stock <= safety_stock')->count();

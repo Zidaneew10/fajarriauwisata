@@ -14,4 +14,16 @@ class ListReservations extends ListRecords
     {
         return [Actions\CreateAction::make()];
     }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            \App\Filament\Widgets\BusAvailabilityWidget::class,
+        ];
+    }
+
+    public function getHeaderWidgetsColumns(): int | array
+    {
+        return 1;
+    }
 }

@@ -12,6 +12,7 @@ class ScheduleTemplate extends Model
     protected $fillable = [
         'bus_trip_id',
         'departure_times',
+        'duration_minutes',
         'days_of_week',
         'start_date',
         'end_date',
@@ -29,9 +30,6 @@ class ScheduleTemplate extends Model
         return $this->belongsTo(BusTrip::class);
     }
 
-    /**
-     * Generate Schedule saja — ScheduleBus diisi admin H-1.
-     */
     public function generateSchedules(): int
     {
         $generated = 0;
@@ -43,20 +41,23 @@ class ScheduleTemplate extends Model
             }
 
             foreach ($this->departure_times as $time) {
-                $departureTime = Carbon::parse($date->format('Y-m-d') . ' ' . $time);
+                $departure = Carbon::parse($date->format('Y-m-d') . ' ' . $time);
+
+                // Hitung arrival otomatis dari duration_minutes
+                $arrival = $departure->copy()->addMinutes($this->duration_minutes);
 
                 $exists = Schedule::where('bus_trip_id', $this->bus_trip_id)
-                    ->where('departure_time', $departureTime)
+                    ->whereDate('departure_date', $date->format('Y-m-d'))
+                    ->where('departure_time', $departure->format('H:i:s'))
                     ->exists();
 
-                if ($exists) {
-                    continue;
-                }
+                if ($exists) continue;
 
                 Schedule::create([
                     'bus_trip_id'    => $this->bus_trip_id,
                     'departure_date' => $date->format('Y-m-d'),
-                    'departure_time' => $departureTime,
+                    'departure_time' => $departure->format('H:i:s'),
+                    'arrival_time'   => $arrival->format('H:i:s'),
                 ]);
 
                 $generated++;

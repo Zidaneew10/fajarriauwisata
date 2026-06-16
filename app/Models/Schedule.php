@@ -2,19 +2,24 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Schedule extends Model
 {
-    protected $fillable = ['bus_trip_id', 'departure_date', 'departure_time', 'status'];
+    public const STATUS_ACTIVE    = 'active';
+    public const STATUS_CANCELLED = 'cancelled';
+    public const STATUS_COMPLETED = 'completed';
+
+    protected $fillable = ['bus_trip_id', 'departure_date', 'departure_time', 'arrival_time', 'status'];
 
     protected $casts = ['departure_date' => 'date'];
 
     protected static function booted(): void
     {
-        // AUTO GENERATE SEATS saat jadwal dibuat
         static::created(function (Schedule $schedule) {
             $schedule->generateSeats();
         });
@@ -33,6 +38,54 @@ class Schedule extends Model
     public function bookings(): HasMany
     {
         return $this->hasMany(Booking::class);
+    }
+
+    public function departureDateTime(): Carbon
+    {
+        $time = substr((string) $this->departure_time, 0, 8);
+
+        return Carbon::parse($this->departure_date->format('Y-m-d') . ' ' . $time);
+    }
+
+    public function isPast(): bool
+    {
+        return $this->departureDateTime()->isPast();
+    }
+
+    public function isBookable(): bool
+    {
+        return $this->status === self::STATUS_ACTIVE && now()->addMinutes(10)->lt($this->departureDateTime());
+    }
+
+    public function scopeBookable(Builder $query): Builder
+    {
+        $cutoffTime = now()->addMinutes(10);
+
+        return $query
+            ->where('status', self::STATUS_ACTIVE)
+            ->where(function (Builder $q) use ($cutoffTime) {
+                $q->whereDate('departure_date', '>', $cutoffTime->toDateString())
+                    ->orWhere(function (Builder $q2) use ($cutoffTime) {
+                        $q2->whereDate('departure_date', $cutoffTime->toDateString())
+                            ->whereTime('departure_time', '>=', $cutoffTime->format('H:i:s'));
+                    });
+            });
+    }
+
+    public static function markPastSchedulesAsCompleted(): int
+    {
+        $cutoffTime = now()->addMinutes(10);
+
+        return static::query()
+            ->where('status', self::STATUS_ACTIVE)
+            ->where(function (Builder $q) use ($cutoffTime) {
+                $q->whereDate('departure_date', '<', $cutoffTime->toDateString())
+                    ->orWhere(function (Builder $q2) use ($cutoffTime) {
+                        $q2->whereDate('departure_date', $cutoffTime->toDateString())
+                            ->whereTime('departure_time', '<', $cutoffTime->format('H:i:s'));
+                    });
+            })
+            ->update(['status' => self::STATUS_COMPLETED]);
     }
 
     public function generateSeats(): void

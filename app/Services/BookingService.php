@@ -104,15 +104,20 @@ class BookingService
                 'expired_at'       => now()->addHours(1),
             ]);
 
+            $passengersData = [];
+            $now = now();
             foreach ($data['passengers'] as $p) {
-                Passenger::create([
+                $passengersData[] = [
                     'booking_id'       => $booking->id,
                     'schedule_seat_id' => $p['schedule_seat_id'],
                     'name'             => $p['name'],
                     'gender'           => $p['gender'],
                     'phone'            => $p['phone'] ?? null,
-                ]);
+                    'created_at'       => $now,
+                    'updated_at'       => $now,
+                ];
             }
+            Passenger::insert($passengersData);
 
             ScheduleSeat::whereIn('id', $seatIds)->update(['is_available' => false]);
 
@@ -152,6 +157,10 @@ class BookingService
             }
 
             $booking->update(['status' => 'cancelled']);
+
+            $booking->passengers()->update([
+                'qr_status' => Passenger::QR_CANCELLED,
+            ]);
         });
     }
 }

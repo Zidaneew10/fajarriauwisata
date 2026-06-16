@@ -9,10 +9,5 @@ class CreateSparePart extends CreateRecord
 {
     protected static string $resource = SparePartResource::class;
 
-    protected function afterCreate(): void
-    {
-        // Hitung ROP otomatis setelah create
-        $this->record->rop = $this->record->calculateRop();
-        $this->record->save();
-    }
+   
 }

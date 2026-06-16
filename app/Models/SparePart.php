@@ -8,16 +8,51 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class SparePart extends Model
 {
     protected $fillable = [
-        'code', 'name', 'unit', 'stock',
-        'safety_stock', 'rop', 'lead_time',
-        'avg_daily_usage', 'price', 'description',
+        'code',
+        'name',
+        'unit',
+        'stock',
+        'price',
+        'description',
+
+        'maximum_daily_usage',
+        'avg_daily_usage',
+        'lead_time',
+
+        'safety_stock',
+        'rop',
     ];
 
     protected $casts = [
-        'price'           => 'decimal:2',
-        'avg_daily_usage' => 'decimal:2',
-        'lead_time'       => 'decimal:2',
+        'price'               => 'decimal:2',
+        'avg_daily_usage'     => 'decimal:2',
+        'maximum_daily_usage' => 'decimal:2',
+        'lead_time'           => 'decimal:2',
     ];
+
+    /**
+     * AUTO HITUNG SAAT CREATE / UPDATE
+     */
+   protected static function booted(): void
+{
+    static::saving(function (SparePart $sparePart) {
+
+        // SS = (Pemakaian Maks - Pemakaian Rata-rata) × Lead Time
+        $ss = (
+            $sparePart->maximum_daily_usage
+            - $sparePart->avg_daily_usage
+        ) * $sparePart->lead_time;
+
+        // Pastikan SS tidak negatif jika input tidak valid
+        $sparePart->safety_stock = (int) ceil(max(0, $ss));
+
+        // ROP = (Lead Time × Rata-rata) + SS
+        $sparePart->rop = (int) ceil(
+            ($sparePart->lead_time * $sparePart->avg_daily_usage)
+            + $sparePart->safety_stock
+        );
+    });
+}
 
     public function sparePartIns(): HasMany
     {
@@ -30,16 +65,7 @@ class SparePart extends Model
     }
 
     /**
-     * Hitung ROP otomatis.
-     * ROP = (avg_daily_usage × lead_time) + safety_stock
-     */
-    public function calculateRop(): int
-    {
-        return (int) ceil(($this->avg_daily_usage * $this->lead_time) + $this->safety_stock);
-    }
-
-    /**
-     * Apakah stok sudah di bawah ROP?
+     * CEK PERLU REORDER
      */
     public function needsReorder(): bool
     {
@@ -47,25 +73,10 @@ class SparePart extends Model
     }
 
     /**
-     * Apakah stok sudah di bawah safety stock?
+     * CEK STOK KRITIS
      */
     public function isCritical(): bool
     {
         return $this->stock <= $this->safety_stock;
-    }
-
-    /**
-     * Hitung avg_daily_usage dari histori keluar.
-     * Ambil 30 hari terakhir.
-     */
-    public function recalculateAvgUsage(): void
-    {
-        $totalOut = $this->sparePartOuts()
-            ->where('used_at', '>=', now()->subDays(30))
-            ->sum('quantity');
-
-        $this->avg_daily_usage = $totalOut / 30;
-        $this->rop             = $this->calculateRop();
-        $this->save();
     }
 }

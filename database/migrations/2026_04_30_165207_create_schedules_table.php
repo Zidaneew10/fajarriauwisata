@@ -17,6 +17,7 @@ return new class extends Migration
             $table->foreignId('bus_trip_id')->constrained()->restrictOnDelete();
             $table->date('departure_date');
             $table->time('departure_time');
+            $table->time('arrival_time');
             $table->enum('status', ['active', 'cancelled', 'completed'])->default('active');
             $table->timestamps();
         });

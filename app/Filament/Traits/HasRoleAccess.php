@@ -65,6 +65,16 @@ trait HasRoleAccess
         ]) ?? false;
     }
 
+    public static function canManageSparePartRequests(): bool
+    {
+        return self::user()?->hasAnyRole([
+            'administrator',
+            'manager',
+            'montir',
+            'driver',
+        ]) ?? false;
+    }
+
     public static function canManageMasterData(): bool
     {
         return self::user()?->hasAnyRole([

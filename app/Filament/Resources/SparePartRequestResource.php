@@ -2,23 +2,22 @@
 
 namespace App\Filament\Resources;
 
-use App\Filament\Resources\SparePartRequestResource\Pages;
+
 use App\Filament\Traits\HasRoleAccess;
+use App\Filament\Resources\SparePartRequestResource\Pages;
 use App\Models\SparePartRequest;
-use Filament\Forms\Components\Section;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\TextInput;
+use App\Models\Bus;
 use Filament\Forms\Form;
-use Filament\Infolists\Components\Grid;
-use Filament\Infolists\Components\Section as InfoSection;
-use Filament\Infolists\Components\TextEntry;
-use Filament\Infolists\Infolist;
-use Filament\Notifications\Notification;
+use Filament\Forms;
 use Filament\Resources\Resource;
+use Filament\Tables;
+use Filament\Tables\Table;
+use Filament\Notifications\Notification;
 use Filament\Tables\Actions\Action;
-use Filament\Tables\Actions\ViewAction;
-use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\Layout\Stack;
+use Filament\Tables\Columns\Layout\Split;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Database\Eloquent\Builder;
 
 class SparePartRequestResource extends Resource
 {
@@ -27,144 +26,164 @@ class SparePartRequestResource extends Resource
     protected static ?string $model = SparePartRequest::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-wrench-screwdriver';
-    protected static ?string $navigationGroup = 'Inventaris';
-    protected static ?string $label = 'Permintaan Spare Part';
-    protected static ?int $navigationSort = 4;
 
-    /* -------------------------
-        ACCESS CONTROL
-    ------------------------- */
+    protected static ?string $navigationGroup = 'Inventaris';
+
+    protected static ?string $label = 'Permintaan Sparepart';
+
+    protected static ?string $pluralLabel = 'Permintaan Sparepart';
+
     public static function canAccess(): bool
     {
-        return Auth::user()?->hasAnyRole([
-            'administrator',
-            'manager',
-            'montir',
-            'driver',
-        ]) ?? false;
+        return static::canManageSparePartRequests();
     }
 
-    public static function canCreate(): bool
+    public static function getEloquentQuery(): Builder
     {
-        return static::canAccess();
+        $query = parent::getEloquentQuery();
+
+        // Jika driver, hanya tampilkan request miliknya sendiri
+        if (self::isDriver()) {
+            $query->where('user_id', Auth::id());
+        }
+
+        return $query;
     }
 
-    public static function canEdit($record): bool
-    {
-        return Auth::user()?->hasAnyRole([
-            'administrator',
-            'manager',
-            'montir',
-        ]) ?? false;
-    }
-
-    public static function canDelete($record): bool
-    {
-        return Auth::user()?->hasRole('administrator') ?? false;
-    }
-
-    /* -------------------------
-        FORM
-    ------------------------- */
     public static function form(Form $form): Form
     {
         return $form->schema([
-            Section::make('Ajukan Permintaan Spare Part')
-                ->schema([
-                    TextInput::make('part_name')
-                        ->label('Nama Spare Part')
-                        ->required()
-                        ->maxLength(200),
 
-                    TextInput::make('quantity')
-                        ->label('Jumlah')
-                        ->numeric()
+            Forms\Components\Section::make('Buat Permintaan Sparepart')
+                ->description('Laporkan kerusakan atau kebutuhan suku cadang kendaraan Anda di sini.')
+                ->schema([
+
+                    Forms\Components\Hidden::make('user_id')
+                        ->default(fn () => Auth::id())
+                        ->required(),
+
+                    Forms\Components\Select::make('bus_info')
+                        ->label('Pilih Bus')
+                        ->options(Bus::where('status', 'active')->get()->mapWithKeys(function ($bus) {
+                            return [$bus->plate_number => "{$bus->plate_number} - {$bus->class_type} ({$bus->bus_code})"];
+                        }))
+                        ->searchable()
                         ->required()
-                        ->minValue(1)
+                        ->placeholder('Ketik atau pilih plat nomor bus'),
+
+                    Forms\Components\Select::make('priority')
+                        ->label('Tingkat Urgensi (Prioritas)')
+                        ->options([
+                            'low' => 'Rendah (Bisa ditunda)',
+                            'medium' => 'Sedang (Perlu segera)',
+                            'high' => 'Tinggi (Sangat penting)',
+                            'urgent' => 'Darurat (Kendaraan tidak bisa jalan)',
+                        ])
+                        ->default('medium')
+                        ->required(),
+
+                    Forms\Components\TextInput::make('part_name')
+                        ->label('Nama Suku Cadang (Sparepart)')
+                        ->placeholder('Contoh: Kampas Rem Depan, Oli Mesin, dll')
+                        ->required(),
+
+                    Forms\Components\Hidden::make('quantity')
                         ->default(1),
 
-                    TextInput::make('unit')
-                        ->label('Satuan')
-                        ->required()
-                        ->default('pcs'),
+                    Forms\Components\Hidden::make('unit')
+                        ->default('-'),
 
-                    TextInput::make('bus_info')
-                        ->label('Nomor Bus (opsional)')
-                        ->nullable(),
-
-                    Textarea::make('reason')
-                        ->label('Alasan')
+                    Forms\Components\Textarea::make('reason')
+                        ->label('Deskripsi Kerusakan / Alasan Kebutuhan')
+                        ->placeholder('Jelaskan dengan singkat bagian mana yang rusak atau mengapa suku cadang ini dibutuhkan.')
                         ->required()
-                        ->rows(4)
-                        ->columnSpanFull(),
+                        ->columnSpanFull()
+                        ->rows(4),
+
                 ])
-                ->columns(2),
+                ->columns(2)
+
         ]);
     }
 
-    /* -------------------------
-        TABLE
-    ------------------------- */
-    public static function table(\Filament\Tables\Table $table): \Filament\Tables\Table
+    public static function table(Table $table): Table
     {
         return $table
+            ->contentGrid([
+                'md' => 2,
+                'xl' => 3,
+            ])
             ->columns([
-                TextColumn::make('created_at')
-                    ->label('Tanggal')
-                    ->dateTime('d M Y H:i')
-                    ->sortable(),
+                Stack::make([
+                    Split::make([
+                        Tables\Columns\TextColumn::make('created_at')
+                            ->dateTime('d M Y, H:i')
+                            ->color('gray')
+                            ->size('xs'),
 
-                TextColumn::make('driver.name')
-                    ->label('Driver')
-                    ->searchable()
-                    ->visible(fn() => !Auth::user()?->hasRole('driver')),
+                        Tables\Columns\TextColumn::make('status')
+                            ->badge()
+                            ->color(fn($state) => match($state) {
+                                'approved' => 'success',
+                                'rejected' => 'danger',
+                                default => 'warning',
+                            }),
+                    ]),
 
-                TextColumn::make('part_name')
-                    ->label('Nama Part')
-                    ->searchable()
-                    ->weight('bold'),
+                    Tables\Columns\TextColumn::make('part_name')
+                        ->weight(\Filament\Support\Enums\FontWeight::Bold)
+                        ->size('lg')
+                        ->searchable(),
 
-                TextColumn::make('quantity')
-                    ->label('Jumlah')
-                    ->suffix(fn($record) => ' ' . $record->unit),
+                    Tables\Columns\TextColumn::make('bus_info')
+                        ->icon('heroicon-m-truck')
+                        ->color('primary')
+                        ->searchable(),
 
-                TextColumn::make('bus_info')
-                    ->label('Bus')
-                    ->default('-'),
+                        Tables\Columns\TextColumn::make('priority')
+                            ->badge()
+                            ->color(fn($state) => match($state) {
+                                'low' => 'gray',
+                                'medium' => 'info',
+                                'high' => 'warning',
+                                'urgent' => 'danger',
+                            })
+                            ->formatStateUsing(fn($state) => strtoupper($state)),
 
-                TextColumn::make('status')
-                    ->label('Status')
-                    ->badge()
-                    ->color(fn($record) => match ($record->status) {
-                        'approved' => 'success',
-                        'rejected' => 'danger',
-                        default => 'warning',
-                    })
-                    ->formatStateUsing(fn($record) => match ($record->status) {
-                        'pending' => '⏳ Menunggu',
-                        'approved' => '✓ Disetujui',
-                        'rejected' => '✗ Ditolak',
-                        default => $record->status,
-                    }),
+                    Tables\Columns\TextColumn::make('user.name')
+                        ->icon('heroicon-m-user')
+                        ->size('sm')
+                        ->color('gray')
+                        ->visible(fn () => !self::isDriver()),
 
-                TextColumn::make('reviewer.name')
-                    ->label('Ditinjau Oleh')
-                    ->default('-')
-                    ->visible(fn() => !Auth::user()?->hasRole('driver')),
+                    Tables\Columns\TextColumn::make('reason')
+                        ->limit(50)
+                        ->color('gray')
+                        ->size('sm')
+                        ->extraAttributes(['class' => 'mt-2 italic']),
+                ])->space(2),
+            ])
+            ->filters([
+                Tables\Filters\SelectFilter::make('status')
+                    ->options([
+                        'pending' => 'Pending',
+                        'approved' => 'Disetujui',
+                        'rejected' => 'Ditolak',
+                    ]),
             ])
             ->actions([
-                ViewAction::make(),
+                Tables\Actions\ViewAction::make(),
+
+                Tables\Actions\EditAction::make()
+                    ->visible(fn($record) => $record->status === 'pending' && (self::isDriver() ? $record->user_id === Auth::id() : true)),
 
                 Action::make('approve')
                     ->label('Setujui')
+                    ->icon('heroicon-m-check-circle')
                     ->color('success')
+                    ->visible(fn($record) => $record->status === 'pending' && !self::isDriver())
                     ->requiresConfirmation()
-                    ->visible(
-                        fn(SparePartRequest $record) =>
-                        $record->status === 'pending'
-                            && !Auth::user()?->hasRole('driver')
-                    )
-                    ->action(function (SparePartRequest $record, array $data = []) {
+                    ->action(function ($record) {
                         $record->update([
                             'status' => 'approved',
                             'reviewed_by' => Auth::id(),
@@ -172,21 +191,18 @@ class SparePartRequestResource extends Resource
                         ]);
 
                         Notification::make()
-                            ->title('Disetujui')
+                            ->title('Permintaan disetujui')
                             ->success()
                             ->send();
                     }),
 
                 Action::make('reject')
                     ->label('Tolak')
+                    ->icon('heroicon-m-x-circle')
                     ->color('danger')
+                    ->visible(fn($record) => $record->status === 'pending' && !self::isDriver())
                     ->requiresConfirmation()
-                    ->visible(
-                        fn(SparePartRequest $record) =>
-                        $record->status === 'pending'
-                            && !Auth::user()?->hasRole('driver')
-                    )
-                    ->action(function (SparePartRequest $record, array $data = []) {
+                    ->action(function ($record) {
                         $record->update([
                             'status' => 'rejected',
                             'reviewed_by' => Auth::id(),
@@ -194,30 +210,13 @@ class SparePartRequestResource extends Resource
                         ]);
 
                         Notification::make()
-                            ->title('Ditolak')
+                            ->title('Permintaan ditolak')
                             ->danger()
                             ->send();
                     }),
+
             ])
             ->defaultSort('created_at', 'desc');
-    }
-
-    /* -------------------------
-        INFOLIST
-    ------------------------- */
-    public static function infolist(Infolist $infolist): Infolist
-    {
-        return $infolist->schema([
-            InfoSection::make('Detail')->schema([
-                Grid::make(2)->schema([
-                    TextEntry::make('driver.name'),
-                    TextEntry::make('part_name'),
-                    TextEntry::make('quantity')
-                        ->suffix(fn($record) => ' ' . $record->unit),
-                    TextEntry::make('status')->badge(),
-                ]),
-            ]),
-        ]);
     }
 
     public static function getPages(): array
@@ -225,6 +224,7 @@ class SparePartRequestResource extends Resource
         return [
             'index' => Pages\ListSparePartRequests::route('/'),
             'create' => Pages\CreateSparePartRequest::route('/create'),
+            'edit' => Pages\EditSparePartRequest::route('/{record}/edit'),
             'view' => Pages\ViewSparePartRequest::route('/{record}'),
         ];
     }

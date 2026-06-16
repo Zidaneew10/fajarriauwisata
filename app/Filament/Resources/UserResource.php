@@ -2,56 +2,91 @@
 
 namespace App\Filament\Resources;
 
+
+use App\Filament\Traits\HasRoleAccess;
 use App\Filament\Resources\UserResource\Pages;
 use App\Models\User;
 use Filament\Forms\Form;
-use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Actions\ViewAction;
 use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Actions\DeleteAction;
-use Filament\Tables\Actions\ViewAction;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Role;
 
 class UserResource extends Resource
 {
+    use HasRoleAccess;
+
+
     protected static ?string $model = User::class;
+
     protected static ?string $navigationIcon = 'heroicon-o-users';
+
     protected static ?string $navigationGroup = 'Management';
-    protected static ?string $label = 'User';
+
+    protected static ?string $navigationLabel = 'User';
+
+    protected static ?string $modelLabel = 'User';
+
+    protected static ?string $pluralModelLabel = 'User';
+
+    public static function canAccess(): bool
+    {
+        return static::isAdmin();
+    }
 
     public static function form(Form $form): Form
     {
         return $form->schema([
-            TextInput::make('name')
-                ->label('Nama')
-                ->required(),
 
-            TextInput::make('email')
-                ->label('Email')
-                ->email()
-                ->required()
-                ->unique(ignoreRecord: true),
+            Section::make('Informasi User')
+                ->schema([
 
-            TextInput::make('password')
-                ->label('Password')
-                ->password()
-                ->dehydrateStateUsing(fn($state) => Hash::make($state))
-                ->dehydrated(fn($state) => filled($state))
-                ->required(fn(string $operation) => $operation === 'create')
-                ->helperText('Kosongkan jika tidak ingin mengubah password'),
+                    TextInput::make('name')
+                        ->label('Nama Lengkap')
+                        ->required(),
 
-            Select::make('roles')
-                ->label('Role')
-                ->options(Role::pluck('name', 'name'))
-                ->multiple()
-                ->preload()
-                ->required(),
+                    TextInput::make('email')
+                        ->label('Email')
+                        ->email()
+                        ->required()
+                        ->unique(ignoreRecord: true),
+
+                    TextInput::make('password')
+                        ->label('Password')
+                        ->password()
+                        ->revealable()
+                        ->dehydrateStateUsing(fn ($state) =>
+                            filled($state)
+                                ? Hash::make($state)
+                                : null
+                        )
+                        ->dehydrated(fn ($state) =>
+                            filled($state)
+                        )
+                        ->required(fn (string $operation) =>
+                            $operation === 'create'
+                        )
+                        ->helperText('Kosongkan jika tidak ingin mengganti password'),
+
+                    Select::make('roles')
+                        ->label('Role')
+                        ->relationship('roles', 'name')
+                        ->multiple()
+                        ->preload()
+                        ->searchable()
+                        ->required(),
+
+                ])
+                ->columns(2),
+
         ]);
     }
 
@@ -59,49 +94,54 @@ class UserResource extends Resource
     {
         return $table
             ->columns([
+
                 TextColumn::make('name')
                     ->label('Nama')
                     ->searchable(),
 
                 TextColumn::make('email')
+                    ->label('Email')
                     ->searchable()
                     ->copyable(),
 
                 TextColumn::make('roles.name')
                     ->label('Role')
                     ->badge()
-                    ->color(fn($state) => match($state) {
-                        'admin'     => 'danger',
+                    ->color(fn ($state) => match ($state) {
+                        'admin' => 'danger',
                         'pelanggan' => 'info',
-                        default     => 'gray',
+                        default => 'gray',
                     }),
 
-                TextColumn::make('bookings_count')
-                    ->counts('bookings')
-                    ->label('Total Booking'),
+    
 
                 TextColumn::make('created_at')
-                    ->label('Bergabung')
+                    ->label('Tanggal Bergabung')
                     ->date('d M Y'),
+
             ])
+
             ->filters([
+
                 SelectFilter::make('roles')
                     ->label('Role')
-                    ->options(Role::pluck('name', 'name'))
-                    ->query(function ($query, $data) {
-                        if ($data['value']) {
-                            $query->whereHas('roles', fn($q) =>
-                                $q->where('name', $data['value'])
-                            );
-                        }
-                    }),
+                    ->relationship('roles', 'name'),
+
             ])
+
             ->actions([
+
                 ViewAction::make(),
+
                 EditAction::make(),
+
                 DeleteAction::make()
-                    ->visible(fn(User $record) => !$record->hasRole('admin')),
+                    ->visible(fn (User $record) =>
+                        !$record->hasRole('admin')
+                    ),
+
             ])
+
             ->defaultSort('created_at', 'desc');
     }
 
@@ -113,10 +153,10 @@ class UserResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index'  => Pages\ListUsers::route('/'),
+            'index' => Pages\ListUsers::route('/'),
             'create' => Pages\CreateUser::route('/create'),
-            'edit'   => Pages\EditUser::route('/{record}/edit'),
-            'view'   => Pages\ViewUser::route('/{record}'),
+            'edit' => Pages\EditUser::route('/{record}/edit'),
+            'view' => Pages\ViewUser::route('/{record}'),
         ];
     }
 }

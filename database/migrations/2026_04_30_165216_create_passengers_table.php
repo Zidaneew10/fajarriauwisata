@@ -18,6 +18,9 @@ return new class extends Migration
             $table->string('name');
             $table->enum('gender', ['Laki-laki', 'Perempuan']);
             $table->string('phone')->nullable();
+            $table->text('qr_code_data')->nullable();
+            $table->enum('qr_status', ['active', 'used', 'cancelled'])->default('active');
+            $table->timestamp('scanned_at')->nullable();
             $table->timestamps();
         });
     }
