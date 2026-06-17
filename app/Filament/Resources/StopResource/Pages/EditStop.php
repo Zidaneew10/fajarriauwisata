@@ -6,7 +6,7 @@ use App\Filament\Resources\StopResource;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 
-class EditStops extends EditRecord
+class EditStop extends EditRecord
 {
     protected static string $resource = StopResource::class;
 

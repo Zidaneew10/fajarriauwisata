@@ -116,8 +116,8 @@ class StopResource extends Resource
     {
         return [
             'index' => Pages\ListStops::route('/'),
-            'create' => Pages\CreateStops::route('/create'),
-            'edit' => Pages\EditStops::route('/{record}/edit'),
+            'create' => Pages\CreateStop::route('/create'),
+            'edit' => Pages\EditStop::route('/{record}/edit'),
         ];
     }
 }
